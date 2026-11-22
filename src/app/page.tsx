@@ -1,103 +1,196 @@
-import Image from "next/image";
+import Link from "next/link";
+import { requirePlayer } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { dateForGameNumber, today } from "@/lib/game";
+import { withRanks } from "@/lib/rank";
+import { Header } from "@/components/Header";
+import { Avatar } from "@/components/Avatar";
+import { SubmitForm } from "@/components/SubmitForm";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const MIN_GAMES = Math.max(1, Number(process.env.MIN_GAMES_FOR_RANKING ?? 3) || 1);
+
+type ScoreRow = {
+  score: number;
+  player_id: string;
+  players: { display_name: string; avatar_url: string | null } | null;
+};
+type OverallRow = {
+  player_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  games_played: number;
+  total_score: number;
+  avg_score: number | null;
+  best_score: number | null;
+};
+
+function medal(rank: number) {
+  return rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; game?: string }>;
+}) {
+  const player = await requirePlayer();
+  const sp = await searchParams;
+  const view = sp.view === "overall" ? "overall" : "daily";
+  const current = today();
+  const game = Math.min(current.gameNumber, Math.max(1, Number(sp.game) || current.gameNumber));
+
+  const supabase = createAdminClient();
+  const { data: mine } = await supabase
+    .from("scores")
+    .select("score")
+    .eq("player_id", player.id)
+    .eq("game_number", current.gameNumber)
+    .maybeSingle();
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="mx-auto max-w-2xl px-4 pb-16">
+      <Header player={player} />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {mine ? (
+        <div className="rounded-2xl border border-line bg-card p-4 text-sm">
+          ✅ You scored <b>{mine.score}</b> on Krillion #{current.gameNumber}. Come back tomorrow!
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      ) : (
+        <SubmitForm gameNumber={current.gameNumber} />
+      )}
+
+      <nav className="mt-8 flex gap-1 rounded-full border border-line bg-card p-1 w-fit text-sm">
+        {(["daily", "overall"] as const).map((v) => (
+          <Link
+            key={v}
+            href={v === "daily" ? "/" : "/?view=overall"}
+            className={`rounded-full px-4 py-1.5 font-medium ${view === v ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}
+          >
+            {v === "daily" ? "Daily" : "Overall"}
+          </Link>
+        ))}
+      </nav>
+
+      {view === "daily" ? (
+        <Daily game={game} currentGame={current.gameNumber} meId={player.id} />
+      ) : (
+        <Overall meId={player.id} />
+      )}
+    </main>
+  );
+}
+
+async function Daily({ game, currentGame, meId }: { game: number; currentGame: number; meId: string }) {
+  const supabase = createAdminClient();
+  const [{ data: scores }, { data: players }] = await Promise.all([
+    supabase
+      .from("scores")
+      .select("score, player_id, players(display_name, avatar_url)")
+      .eq("game_number", game)
+      .order("score", { ascending: false })
+      .order("submitted_at", { ascending: true }),
+    supabase.from("players").select("id, display_name, joined_at"),
+  ]);
+  const rows = withRanks((scores ?? []) as unknown as ScoreRow[], (r) => r.score);
+  const played = new Set(rows.map((r) => r.player_id));
+  const gameDate = dateForGameNumber(game);
+  const waiting = (players ?? []).filter((p) => !played.has(p.id) && p.joined_at.slice(0, 10) <= gameDate);
+
+  return (
+    <section className="mt-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">
+          Krillion #{game} <span className="text-muted text-sm font-normal">{gameDate}</span>
+        </h2>
+        <div className="flex gap-2 text-sm">
+          <Link href={`/?game=${game - 1}`} className="rounded-full border border-line px-3 py-1 hover:bg-card">
+            ← Prev
+          </Link>
+          {game < currentGame && (
+            <Link
+              href={game + 1 === currentGame ? "/" : `/?game=${game + 1}`}
+              className="rounded-full border border-line px-3 py-1 hover:bg-card"
+            >
+              Next →
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-muted mt-6">No scores yet for this game.</p>
+      ) : (
+        <ol className="mt-4 divide-y divide-line rounded-2xl border border-line bg-card">
+          {rows.map((r) => (
+            <li key={r.player_id} className={`flex items-center gap-3 px-4 py-3 ${r.player_id === meId ? "bg-accent/10" : ""}`}>
+              <span className="w-7 text-center font-semibold tabular-nums">{medal(r.rank)}</span>
+              <Avatar src={r.players?.avatar_url ?? null} name={r.players?.display_name ?? "?"} />
+              <span className="flex-1 truncate">{r.players?.display_name}</span>
+              <span className="font-mono text-lg font-bold tabular-nums">{r.score}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {game === currentGame && waiting.length > 0 && (
+        <p className="text-muted mt-4 text-sm">
+          Still to play: {waiting.map((p) => p.display_name).join(", ")}
+        </p>
+      )}
+    </section>
+  );
+}
+
+async function Overall({ meId }: { meId: string }) {
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("overall_leaderboard").select("*");
+  const all = ((data ?? []) as OverallRow[]).filter((r) => r.games_played > 0);
+  const sort = (a: OverallRow, b: OverallRow) =>
+    (b.avg_score ?? 0) - (a.avg_score ?? 0) || b.games_played - a.games_played;
+  const ranked = withRanks(all.filter((r) => r.games_played >= MIN_GAMES).sort(sort), (r) => r.avg_score ?? 0);
+  const provisional = all.filter((r) => r.games_played < MIN_GAMES).sort(sort);
+
+  const Row = ({ r, rank }: { r: OverallRow; rank?: number }) => (
+    <li className={`flex items-center gap-3 px-4 py-3 ${r.player_id === meId ? "bg-accent/10" : ""}`}>
+      <span className="w-7 text-center font-semibold tabular-nums">{rank ? medal(rank) : "–"}</span>
+      <Avatar src={r.avatar_url} name={r.display_name} />
+      <span className="flex-1 truncate">{r.display_name}</span>
+      <span className="text-muted text-xs tabular-nums text-right w-20">
+        {r.games_played} {r.games_played === 1 ? "game" : "games"}
+        <br />
+        best {r.best_score}
+      </span>
+      <span className="font-mono text-lg font-bold tabular-nums w-16 text-right">{r.avg_score?.toFixed(1)}</span>
+    </li>
+  );
+
+  return (
+    <section className="mt-4">
+      <h2 className="text-xl font-bold">Overall</h2>
+      <p className="text-muted text-sm">Average score per game played. Missed days don&apos;t count against you.</p>
+      {ranked.length === 0 ? (
+        <p className="text-muted mt-6">Nobody has {MIN_GAMES} games yet.</p>
+      ) : (
+        <ol className="mt-4 divide-y divide-line rounded-2xl border border-line bg-card">
+          {ranked.map((r) => (
+            <Row key={r.player_id} r={r} rank={r.rank} />
+          ))}
+        </ol>
+      )}
+      {provisional.length > 0 && (
+        <>
+          <h3 className="mt-6 font-semibold">
+            Provisional <span className="text-muted text-sm font-normal">· fewer than {MIN_GAMES} games</span>
+          </h3>
+          <ol className="mt-2 divide-y divide-line rounded-2xl border border-line bg-card">
+            {provisional.map((r) => (
+              <Row key={r.player_id} r={r} />
+            ))}
+          </ol>
+        </>
+      )}
+    </section>
   );
 }
