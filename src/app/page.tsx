@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requirePlayer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { dateForGameNumber, today } from "@/lib/game";
+import { dateForGameNumber, gameConfig, today } from "@/lib/game";
 import { withRanks } from "@/lib/rank";
+import { cutoffTime, isProvisional, payDive, type Payout } from "@/lib/capitalist";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
 import { SubmitForm } from "@/components/SubmitForm";
@@ -11,10 +12,14 @@ export const dynamic = "force-dynamic";
 
 const MIN_GAMES = Math.max(1, Number(process.env.MIN_GAMES_FOR_RANKING ?? 3) || 1);
 
+type View = "daily" | "overall";
+type Mode = "real" | "cap";
+type PlayerInfo = { display_name: string; avatar_url: string | null } | null;
 type ScoreRow = {
   score: number;
   player_id: string;
-  players: { display_name: string; avatar_url: string | null } | null;
+  submitted_at: string;
+  players: PlayerInfo;
 };
 type OverallRow = {
   player_id: string;
@@ -26,20 +31,28 @@ type OverallRow = {
   best_score: number | null;
 };
 
-function medal(rank: number) {
-  return rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
+/** Builds a home-page link, keeping the other settings. */
+function homeHref(p: { view: View; mode: Mode; game?: number }) {
+  const q = new URLSearchParams();
+  if (p.view === "overall") q.set("view", "overall");
+  if (p.mode === "cap") q.set("mode", "cap");
+  if (p.view === "daily" && p.game !== undefined) q.set("game", String(p.game));
+  const s = q.toString();
+  return s ? `/?${s}` : "/";
 }
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; game?: string }>;
+  searchParams: Promise<{ view?: string; game?: string; mode?: string }>;
 }) {
   const player = await requirePlayer();
   const sp = await searchParams;
-  const view = sp.view === "overall" ? "overall" : "daily";
+  const view: View = sp.view === "overall" ? "overall" : "daily";
+  const mode: Mode = sp.mode === "cap" ? "cap" : "real";
   const current = today();
   const game = Math.min(current.gameNumber, Math.max(1, Number(sp.game) || current.gameNumber));
+  const gameParam = game === current.gameNumber ? undefined : game;
 
   const supabase = createAdminClient();
   const { data: mine } = await supabase
@@ -53,41 +66,102 @@ export default async function Home({
     <main className="mx-auto max-w-2xl px-4 pb-16">
       <Header player={player} />
 
-      {mine ? (
-        <div className="rounded-2xl border border-line bg-card p-4 text-sm">
-          ✅ You scored <b>{mine.score}</b> on Krillion #{current.gameNumber}. Come back tomorrow!
-        </div>
-      ) : (
-        <SubmitForm gameNumber={current.gameNumber} />
-      )}
+      {/* Today's status: the submit panel until you've played, then a one-line "see you tomorrow". */}
+      <div className="mt-2">
+        {mine ? (
+          <div className="kr-done">
+            <span className="kr-shrimp" aria-hidden>🦐</span>
+            <span>
+              you surfaced with <span className="kr-done__score">{mine.score}</span>
+            </span>
+            <span className="kr-done__meta">see you tomorrow · dive #{current.gameNumber + 1}</span>
+          </div>
+        ) : (
+          <SubmitForm gameNumber={current.gameNumber} />
+        )}
+      </div>
 
-      <nav className="mt-8 flex gap-1 rounded-full border border-line bg-card p-1 w-fit text-sm">
+      <nav className="mt-10 flex flex-wrap items-center gap-4">
         {(["daily", "overall"] as const).map((v) => (
           <Link
             key={v}
-            href={v === "daily" ? "/" : "/?view=overall"}
-            className={`rounded-full px-4 py-1.5 font-medium ${view === v ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}
+            href={homeHref({ view: v, mode, game: gameParam })}
+            aria-current={view === v}
+            className="kr-btn kr-btn--secondary"
           >
-            {v === "daily" ? "Daily" : "Overall"}
+            {v}
           </Link>
         ))}
+        <span className="kr-sep" aria-hidden />
+        <Link
+          href={homeHref({ view, mode: "real", game: gameParam })}
+          aria-current={mode === "real"}
+          className="kr-btn kr-btn--secondary"
+        >
+          real
+        </Link>
+        <Link
+          href={homeHref({ view, mode: "cap", game: gameParam })}
+          aria-current={mode === "cap"}
+          className="kr-btn kr-btn--secondary kr-btn--cap"
+        >
+          yuki capitalist 💸
+        </Link>
       </nav>
 
-      {view === "daily" ? (
-        <Daily game={game} currentGame={current.gameNumber} meId={player.id} />
-      ) : (
-        <Overall meId={player.id} />
-      )}
+      <div className={mode === "cap" ? "kr-nasty" : undefined}>
+        {view === "daily" ? (
+          mode === "cap" ? (
+            <DailyCap game={game} currentGame={current.gameNumber} meId={player.id} />
+          ) : (
+            <Daily game={game} currentGame={current.gameNumber} meId={player.id} />
+          )
+        ) : mode === "cap" ? (
+          <OverallCap meId={player.id} />
+        ) : (
+          <Overall meId={player.id} />
+        )}
+      </div>
     </main>
   );
 }
+
+function DiveHeader({ game, currentGame, mode, note }: { game: number; currentGame: number; mode: Mode; note?: string }) {
+  const gameDate = dateForGameNumber(game);
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <h2 className="kr-h text-4xl leading-none">
+        dive #{game} {game === currentGame && <span className="kr-tag">today</span>}
+        <span className="kr-sub block text-base tracking-[0.14em]">
+          {gameDate}
+          {note ? ` · ${note}` : ""}
+        </span>
+      </h2>
+      <div className="flex gap-4">
+        <Link href={homeHref({ view: "daily", mode, game: game - 1 })} className="kr-btn kr-btn--secondary">
+          ◀ prev
+        </Link>
+        {game < currentGame && (
+          <Link
+            href={homeHref({ view: "daily", mode, game: game + 1 === currentGame ? undefined : game + 1 })}
+            className="kr-btn kr-btn--secondary"
+          >
+            next ▶
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const you = (id: string, meId: string) => id === meId && <span className="kr-tag kr-tag--pink">you</span>;
 
 async function Daily({ game, currentGame, meId }: { game: number; currentGame: number; meId: string }) {
   const supabase = createAdminClient();
   const [{ data: scores }, { data: players }] = await Promise.all([
     supabase
       .from("scores")
-      .select("score, player_id, players(display_name, avatar_url)")
+      .select("score, player_id, submitted_at, players(display_name, avatar_url)")
       .eq("game_number", game)
       .order("score", { ascending: false })
       .order("submitted_at", { ascending: true }),
@@ -99,46 +173,98 @@ async function Daily({ game, currentGame, meId }: { game: number; currentGame: n
   const waiting = (players ?? []).filter((p) => !played.has(p.id) && p.joined_at.slice(0, 10) <= gameDate);
 
   return (
-    <section className="mt-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">
-          Krillion #{game} <span className="text-muted text-sm font-normal">{gameDate}</span>
-        </h2>
-        <div className="flex gap-2 text-sm">
-          <Link href={`/?game=${game - 1}`} className="rounded-full border border-line px-3 py-1 hover:bg-card">
-            ← Prev
-          </Link>
-          {game < currentGame && (
-            <Link
-              href={game + 1 === currentGame ? "/" : `/?game=${game + 1}`}
-              className="rounded-full border border-line px-3 py-1 hover:bg-card"
-            >
-              Next →
-            </Link>
-          )}
-        </div>
-      </div>
+    <section className="mt-8">
+      <DiveHeader game={game} currentGame={currentGame} mode="real" />
 
       {rows.length === 0 ? (
-        <p className="text-muted mt-6">No scores yet for this game.</p>
+        <p className="text-muted mt-6">nobody has surfaced from this dive yet.</p>
       ) : (
-        <ol className="mt-4 divide-y divide-line rounded-2xl border border-line bg-card">
+        <ol className="kr-board mt-6">
           {rows.map((r) => (
-            <li key={r.player_id} className={`flex items-center gap-3 px-4 py-3 ${r.player_id === meId ? "bg-accent/10" : ""}`}>
-              <span className="w-7 text-center font-semibold tabular-nums">{medal(r.rank)}</span>
+            <li key={r.player_id} data-rank={r.rank} className={`kr-row ${r.player_id === meId ? "kr-row--me" : ""}`}>
+              <span className="kr-row__rank">{r.rank}</span>
               <Avatar src={r.players?.avatar_url ?? null} name={r.players?.display_name ?? "?"} />
-              <span className="flex-1 truncate">{r.players?.display_name}</span>
-              <span className="font-mono text-lg font-bold tabular-nums">{r.score}</span>
+              <span className="kr-row__name">
+                {r.players?.display_name} {you(r.player_id, meId)}
+              </span>
+              <span className="kr-row__score">{r.score}</span>
             </li>
           ))}
         </ol>
       )}
 
       {game === currentGame && waiting.length > 0 && (
-        <p className="text-muted mt-4 text-sm">
-          Still to play: {waiting.map((p) => p.display_name).join(", ")}
+        <p className="text-muted mt-5 text-base tracking-[0.1em]">
+          still diving · {waiting.map((p) => p.display_name).join(" · ")}
         </p>
       )}
+    </section>
+  );
+}
+
+function Loot({ r }: { r: { bonus: number; late: boolean } }) {
+  if (r.bonus === 50) return <span className="kr-loot kr-loot--gold">+50 💰</span>;
+  if (r.bonus === 20) return <span className="kr-loot kr-loot--orange">+20 💸</span>;
+  if (r.bonus === 10) return <span className="kr-loot kr-loot--red">+10</span>;
+  return <span className="kr-loot kr-loot--red">{r.late ? "too late" : "taxed"}</span>;
+}
+
+async function DailyCap({ game, currentGame, meId }: { game: number; currentGame: number; meId: string }) {
+  const { timeZone } = gameConfig();
+  const gameDate = dateForGameNumber(game);
+  const { data: scores } = await createAdminClient()
+    .from("scores")
+    .select("score, player_id, submitted_at, players(display_name, avatar_url)")
+    .eq("game_number", game);
+
+  const paid = payDive((scores ?? []) as unknown as ScoreRow[], gameDate, timeZone);
+  const rows = withRanks(
+    paid.sort((a, b) => b.total - a.total || b.score - a.score),
+    (r) => r.total,
+  );
+  const provisional = game === currentGame && isProvisional(gameDate, timeZone);
+  const winners = rows.filter((r) => r.bonus > 0);
+  const losers = rows.filter((r) => r.bonus === 0);
+
+  return (
+    <section className="mt-8">
+      {rows.length > 0 && (
+        <div className="kr-ticker" aria-hidden>
+          <span>
+            payout · dive #{game} ·{" "}
+            {winners.map((r) => `${r.players?.display_name} +${r.bonus}${r.bonus === 50 ? " 💰" : " 💸"}`).join(" · ")}
+            {" · the house takes the rest · "}
+            {losers.length > 0 && `${losers.map((r) => r.players?.display_name).join(" · ")} taxed · `}
+          </span>
+        </div>
+      )}
+      <DiveHeader
+        game={game}
+        currentGame={currentGame}
+        mode="cap"
+        note={provisional ? `payout provisional until ${cutoffTime()}` : "payout final"}
+      />
+
+      {rows.length === 0 ? (
+        <p className="kr-sub mt-6">no loot on this dive. nobody surfaced.</p>
+      ) : (
+        <ol className="kr-board mt-6">
+          {rows.map((r) => (
+            <li key={r.player_id} data-rank={r.rank} className={`kr-row ${r.player_id === meId ? "kr-row--me" : ""}`}>
+              <span className="kr-row__rank">{r.rank}</span>
+              <Avatar src={r.players?.avatar_url ?? null} name={r.players?.display_name ?? "?"} />
+              <span className="kr-row__name">
+                {r.players?.display_name} {you(r.player_id, meId)} <Loot r={r} />
+              </span>
+              <span className="kr-row__score">{r.total}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="kr-stub mt-5">
+        <span>podium decided at {cutoffTime()} · later dives don&apos;t get loot</span>
+        <b>{rows.reduce((a, r) => a + r.bonus, 0)} loot paid 💸</b>
+      </p>
     </section>
   );
 }
@@ -153,27 +279,27 @@ async function Overall({ meId }: { meId: string }) {
   const provisional = all.filter((r) => r.games_played < MIN_GAMES).sort(sort);
 
   const Row = ({ r, rank }: { r: OverallRow; rank?: number }) => (
-    <li className={`flex items-center gap-3 px-4 py-3 ${r.player_id === meId ? "bg-accent/10" : ""}`}>
-      <span className="w-7 text-center font-semibold tabular-nums">{rank ? medal(rank) : "–"}</span>
+    <li data-rank={rank} className={`kr-row ${r.player_id === meId ? "kr-row--me" : ""}`}>
+      <span className="kr-row__rank">{rank ?? "·"}</span>
       <Avatar src={r.avatar_url} name={r.display_name} />
-      <span className="flex-1 truncate">{r.display_name}</span>
-      <span className="text-muted text-xs tabular-nums text-right w-20">
-        {r.games_played} {r.games_played === 1 ? "game" : "games"}
-        <br />
-        best {r.best_score}
+      <span className="kr-row__name">
+        {r.display_name}
+        <span className="kr-row__meta">
+          {r.games_played} {r.games_played === 1 ? "dive" : "dives"} · best {r.best_score}
+        </span>
       </span>
-      <span className="font-mono text-lg font-bold tabular-nums w-16 text-right">{r.avg_score?.toFixed(1)}</span>
+      <span className="kr-row__score">{r.avg_score?.toFixed(1)}</span>
     </li>
   );
 
   return (
-    <section className="mt-4">
-      <h2 className="text-xl font-bold">Overall</h2>
-      <p className="text-muted text-sm">Average score per game played. Missed days don&apos;t count against you.</p>
+    <section className="mt-8">
+      <h2 className="text-4xl leading-none">overall</h2>
+      <p className="text-muted mt-1 text-base tracking-[0.1em]">average per dive played · missed days don&apos;t count</p>
       {ranked.length === 0 ? (
-        <p className="text-muted mt-6">Nobody has {MIN_GAMES} games yet.</p>
+        <p className="text-muted mt-6">nobody has {MIN_GAMES} dives yet.</p>
       ) : (
-        <ol className="mt-4 divide-y divide-line rounded-2xl border border-line bg-card">
+        <ol className="kr-board mt-6">
           {ranked.map((r) => (
             <Row key={r.player_id} r={r} rank={r.rank} />
           ))}
@@ -181,16 +307,104 @@ async function Overall({ meId }: { meId: string }) {
       )}
       {provisional.length > 0 && (
         <>
-          <h3 className="mt-6 font-semibold">
-            Provisional <span className="text-muted text-sm font-normal">· fewer than {MIN_GAMES} games</span>
+          <h3 className="mt-8 text-2xl">
+            provisional <span className="text-muted text-base">· fewer than {MIN_GAMES} dives</span>
           </h3>
-          <ol className="mt-2 divide-y divide-line rounded-2xl border border-line bg-card">
+          <ol className="kr-board mt-4">
             {provisional.map((r) => (
               <Row key={r.player_id} r={r} />
             ))}
           </ol>
         </>
       )}
+    </section>
+  );
+}
+
+type Haul = {
+  player_id: string;
+  players: PlayerInfo;
+  dives: number;
+  haul: number;
+  loot: number;
+  gold: number;
+  silver: number;
+  bronze: number;
+};
+
+async function OverallCap({ meId }: { meId: string }) {
+  const { timeZone } = gameConfig();
+  const { data } = await createAdminClient()
+    .from("scores")
+    .select("score, player_id, submitted_at, game_number, players(display_name, avatar_url)");
+  const scores = (data ?? []) as unknown as (ScoreRow & { game_number: number })[];
+
+  // Pay out every dive, then add up each player's daily (score + loot).
+  const byGame = new Map<number, typeof scores>();
+  for (const s of scores) byGame.set(s.game_number, [...(byGame.get(s.game_number) ?? []), s]);
+  const hauls = new Map<string, Haul>();
+  for (const [game, rows] of byGame) {
+    for (const r of payDive(rows, dateForGameNumber(game), timeZone) as Payout<ScoreRow>[]) {
+      const h = hauls.get(r.player_id) ?? {
+        player_id: r.player_id,
+        players: r.players,
+        dives: 0,
+        haul: 0,
+        loot: 0,
+        gold: 0,
+        silver: 0,
+        bronze: 0,
+      };
+      h.dives++;
+      h.haul += r.total;
+      h.loot += r.bonus;
+      if (r.bonus === 50) h.gold++;
+      else if (r.bonus === 20) h.silver++;
+      else if (r.bonus === 10) h.bronze++;
+      hauls.set(r.player_id, h);
+    }
+  }
+  const ranked = withRanks(
+    [...hauls.values()].sort((a, b) => b.haul - a.haul),
+    (h) => h.haul,
+  );
+  const broke = ranked.filter((h) => h.loot === 0);
+
+  return (
+    <section className="mt-8">
+      <h2 className="kr-h text-4xl leading-none">overall haul 🤑</h2>
+      <p className="kr-sub mt-1 text-base tracking-[0.1em]">every dive&apos;s score + loot, added up · no averages</p>
+      {ranked.length === 0 ? (
+        <p className="kr-sub mt-6">the vault is empty.</p>
+      ) : (
+        <ol className="kr-board mt-6">
+          {ranked.map((h) => (
+            <li key={h.player_id} data-rank={h.rank} className={`kr-row ${h.player_id === meId ? "kr-row--me" : ""}`}>
+              <span className="kr-row__rank">{h.rank}</span>
+              <Avatar src={h.players?.avatar_url ?? null} name={h.players?.display_name ?? "?"} />
+              <span className="kr-row__name">
+                {h.players?.display_name} {you(h.player_id, meId)}
+                <span className="kr-row__meta">
+                  {h.dives} {h.dives === 1 ? "dive" : "dives"}
+                  {h.gold > 0 && <span className="kr-tally--gold"> · 💰×{h.gold}</span>}
+                  {h.silver > 0 && <span className="kr-tally--orange"> 💸×{h.silver}</span>}
+                  {h.bronze > 0 && <span className="kr-tally--red"> +10×{h.bronze}</span>}
+                </span>
+              </span>
+              <span className="kr-row__score">{h.haul}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {broke.length > 0 && (
+        <p className="kr-sub mt-4 text-base tracking-[0.1em]">
+          bankrupt · {broke.map((h) => h.players?.display_name).join(" · ")} 💸
+        </p>
+      )}
+      <p className="kr-stub mt-5">
+        <span>the house always wins</span>
+        <b>{ranked.reduce((a, h) => a + h.loot, 0)} loot in the vault</b>
+      </p>
     </section>
   );
 }

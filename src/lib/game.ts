@@ -2,8 +2,8 @@
  * Krillion puzzle numbering. Configure one known (game number, date) pair and
  * the timezone the daily puzzle resets in; everything else is derived.
  *
- *   KRILLION_REFERENCE_GAME=129
- *   KRILLION_REFERENCE_DATE=2026-11-22
+ *   KRILLION_REFERENCE_GAME=132
+ *   KRILLION_REFERENCE_DATE=2026-11-24
  *   KRILLION_TIMEZONE=America/Toronto
  */
 

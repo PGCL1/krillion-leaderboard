@@ -7,32 +7,25 @@ export function SubmitForm({ gameNumber }: { gameNumber: number }) {
   const [state, action, pending] = useActionState<SubmitState, FormData>(submitScore, undefined);
 
   return (
-    <form action={action} className="rounded-2xl border border-line bg-card p-4 sm:p-5">
-      <label htmlFor="raw" className="block font-semibold">
-        Submit today&apos;s score <span className="text-muted font-normal">· Krillion #{gameNumber}</span>
+    <form action={action} className="kr-panel">
+      <span className="kr-tag">today · dive #{gameNumber}</span>
+      <label htmlFor="raw" className="block text-2xl">
+        submit today&apos;s score
       </label>
-      <p className="text-muted text-sm mt-1">Paste the share text from Krillion. You only get one shot.</p>
+      <p className="text-muted mt-1 text-base tracking-[0.1em]">paste krillion&apos;s share text · one shot per dive</p>
       <textarea
         id="raw"
         name="raw"
         required
         rows={4}
-        placeholder={`Krillion #${gameNumber} 🦐\n180\n\n🦑⬛⬛🐟🐟🦑⬛`}
-        className="mt-3 w-full rounded-xl border border-line bg-background p-3 font-mono text-sm outline-none focus:ring-2 focus:ring-accent"
+        placeholder={`krillion #${gameNumber} 🦐\n180\n\n🦑⬛⬛🐟🐟🦑⬛`}
+        className="kr-field mt-4"
       />
-      <div className="mt-3 flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-full bg-accent px-5 py-2 font-semibold text-white disabled:opacity-60"
-        >
-          {pending ? "Submitting…" : "Submit"}
+      <div className="mt-6 flex flex-wrap items-center gap-5">
+        <button type="submit" disabled={pending} className="kr-btn">
+          {pending ? "diving…" : "▼ submit ▼"}
         </button>
-        {state?.message && (
-          <p className={`text-sm ${state.ok ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-            {state.message}
-          </p>
-        )}
+        {state?.message && <p className={state.ok ? "kr-ok" : "kr-error"}>{state.message}</p>}
       </div>
     </form>
   );

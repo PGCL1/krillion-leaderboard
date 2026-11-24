@@ -1,23 +1,44 @@
 @import "tailwindcss";
 
+/*
+ * Krillion Leaderboard design system (published as the "krillion leaderboard" design system artifact).
+ * One dark "abyss" theme, VT323 pixel font, square pixel frames drawn with stacked box-shadows,
+ * a CRT scanline + vignette overlay. Values follow krillion.io's own interface.
+ */
 :root {
-  --background: #fbf7f4;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --line: #ebe3dc;
-  --muted: #78716c;
-  --accent: #f0566a; /* shrimp */
-}
+  --abyss: #050a14;
+  --deep-100: #0b1424;
+  --deep-200: #0d1830;
+  --panel: #101d33;
+  --panel-drop: #123048;
+  --ring: #1b3050;
+  --hairline: #7d93b838;
+  --ink: #e8f1ff;
+  --muted: #7d93b8;
+  --cyan: #4de3ff;
+  --pink: #ff5d8f;
+  --tier-krillion: #ffd166;
+  --tier-deepcut: #9d7bff;
+  --tier-schooler: #4de3ff;
+  --tier-tooclever: #ff9f43;
+  --tier-rare: #ff5252;
+  --tier-plankton: #8fa3c4;
+  --tier-miss: #3d4f6e;
+  --sea-surface: #14466e;
+  --sea-mid: #0c2742;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f1115;
-    --foreground: #ececec;
-    --card: #171a21;
-    --line: #262a33;
-    --muted: #9aa0aa;
-    --accent: #ff6b7d;
-  }
+  --frame-primary: 0 0 0 3px var(--abyss), 0 0 0 6px var(--cyan), 0 6px 0 6px var(--panel-drop);
+  --frame-primary-flat: 0 0 0 3px var(--abyss), 0 0 0 6px var(--cyan), 0 2px 0 6px var(--panel-drop);
+  --frame-secondary: 0 0 0 2px var(--abyss), 0 0 0 4px var(--ring), 0 4px 0 4px var(--deep-100);
+
+  /* names the existing Tailwind classes use */
+  --background: var(--abyss);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --line: var(--ring);
+  --accent: var(--cyan);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -27,14 +48,259 @@
   --color-line: var(--line);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-pink: var(--pink);
+  --color-gold: var(--tier-krillion);
+  --color-deep: var(--deep-100);
+  --font-sans: var(--font-pixel), ui-monospace, monospace;
+  --font-mono: var(--font-pixel), ui-monospace, monospace;
+  /* square corners everywhere (pixel frames never round) */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+}
+
+html {
+  font-size: 20px; /* VT323 runs small; 20px reads like 16px of a normal face */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  background: var(--abyss);
+  color: var(--ink);
+  font-family: var(--font-pixel), ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  -webkit-font-smoothing: none;
+  min-height: 100dvh;
+}
+
+/* sea band at the top of every page, fading into the abyss */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 60vh;
+  background: linear-gradient(180deg, var(--sea-surface) 0%, var(--sea-mid) 45%, var(--abyss) 100%);
+  z-index: -1;
+}
+
+/* CRT layer: scanlines + vignette over everything */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background:
+    radial-gradient(at 50% 45%, rgb(0 0 0 / 0) 55%, rgb(2 4 10 / 0.85) 100%),
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.18) 0 1px, rgb(0 0 0 / 0) 1px 3px);
+}
+
+/* ---- components (same classes as the design system) ---- */
+
+.kr-wordmark {
+  font-size: clamp(56px, 13vw, 104px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-shadow: -4px 3px 0 var(--pink), 4px -3px 0 rgb(77 227 255 / 0.85), 0 0 30px rgb(77 227 255 / 0.35);
+}
+.kr-tagline {
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  color: var(--cyan);
+  text-shadow: 0 2px 0 rgb(5 10 20 / 0.4), 0 0 12px rgb(77 227 255 / 0.5);
+}
+
+.kr-btn {
+  appearance: none;
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  padding: 10px 22px;
+  box-shadow: var(--frame-primary);
+  cursor: pointer;
+  transition: transform 80ms steps(2), box-shadow 80ms steps(2);
+}
+.kr-btn:hover { background: var(--deep-200); }
+.kr-btn:active { transform: translateY(4px); box-shadow: var(--frame-primary-flat); }
+.kr-btn:focus-visible { outline: 3px solid var(--pink); outline-offset: 9px; }
+.kr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.kr-btn--secondary {
+  background: var(--deep-200);
+  color: var(--muted);
+  font-size: 16px;
+  padding: 6px 12px;
+  box-shadow: var(--frame-secondary);
+}
+.kr-btn--secondary:hover { color: var(--ink); }
+.kr-btn--secondary[aria-current="true"] {
+  color: var(--ink);
+  box-shadow: 0 0 0 2px var(--abyss), 0 0 0 4px var(--cyan), 0 4px 0 4px var(--deep-100);
+}
+
+.kr-panel {
+  position: relative;
+  background: var(--panel);
+  box-shadow: var(--frame-primary-flat);
+  padding: 24px;
+}
+.kr-panel > .kr-tag:first-child { position: absolute; top: -9px; left: 12px; }
+
+.kr-tag {
+  display: inline-block;
+  background: var(--cyan);
+  color: var(--panel);
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  box-shadow: 0 0 0 3px var(--abyss);
+  vertical-align: middle;
+}
+.kr-tag--pink { background: var(--pink); color: var(--abyss); }
+
+.kr-field {
+  width: 100%;
+  background: var(--abyss);
+  color: var(--ink);
+  border: 0;
+  box-shadow: inset 0 0 0 2px var(--ring);
+  padding: 10px 12px;
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  outline: none;
+}
+.kr-field:focus { box-shadow: inset 0 0 0 2px var(--cyan); }
+.kr-field::placeholder { color: var(--tier-miss); }
+
+.kr-board { box-shadow: var(--frame-secondary); background: var(--deep-100); }
+.kr-row {
+  display: grid;
+  grid-template-columns: 2.5ch 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.kr-row:last-child { border-bottom: 0; }
+.kr-row__rank { color: var(--tier-plankton); text-align: right; }
+.kr-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kr-row__meta { color: var(--muted); font-size: 16px; margin-left: 8px; }
+.kr-row__score { font-size: 28px; text-align: right; }
+.kr-row[data-rank="1"] .kr-row__rank,
+.kr-row[data-rank="1"] .kr-row__score { color: var(--tier-krillion); }
+.kr-row[data-rank="2"] .kr-row__rank { color: var(--tier-deepcut); }
+.kr-row[data-rank="3"] .kr-row__rank { color: var(--tier-schooler); }
+.kr-row--me { background: var(--panel); box-shadow: inset 3px 0 0 var(--pink); }
+
+.kr-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  background: var(--deep-100);
+  box-shadow: var(--frame-secondary);
+  padding: 12px 18px;
+  font-size: 20px;
+}
+.kr-done__score { color: var(--tier-krillion); font-size: 28px; }
+.kr-done__meta { color: var(--muted); font-size: 16px; letter-spacing: 0.14em; margin-left: auto; }
+.kr-shrimp { font-size: 26px; line-height: 1; filter: drop-shadow(0 0 6px rgb(255 93 143 / 0.6)); }
+
+.kr-error { color: var(--tier-rare); }
+.kr-ok { color: var(--tier-krillion); }
+
+.kr-sub { color: var(--muted); }
+.kr-sep { width: 2px; align-self: stretch; background: var(--ring); }
+
+/* ---- yuki capitalist ("nasty") mode: gold, blood red, orange. The real views stay calm cyan. ---- */
+:root { --blood: #2a0a10; --loot: #1a1206; }
+
+.kr-btn--cap[aria-current="true"] {
+  background: var(--blood);
+  color: var(--tier-krillion);
+  box-shadow: 0 0 0 2px var(--abyss), 0 0 0 4px var(--tier-rare), 0 4px 0 4px var(--tier-krillion);
+}
+
+.kr-nasty .kr-h { color: var(--tier-krillion); text-shadow: -3px 2px 0 var(--tier-rare), 0 0 14px rgb(255 209 102 / 0.35); }
+.kr-nasty .kr-sub { color: var(--tier-tooclever); }
+.kr-nasty .kr-board {
+  background: var(--loot);
+  box-shadow: 0 0 0 2px var(--abyss), 0 0 0 5px var(--tier-krillion), 0 0 0 7px var(--abyss), 0 0 0 9px var(--tier-rare),
+    0 0 28px 6px rgb(255 82 82 / 0.25);
+}
+.kr-nasty .kr-row { border-bottom: 1px dashed rgb(255 159 67 / 0.35); }
+.kr-nasty .kr-row__rank,
+.kr-nasty .kr-row__meta { color: var(--tier-tooclever); }
+.kr-nasty .kr-row__score { color: var(--tier-krillion); }
+.kr-nasty .kr-row[data-rank="1"] {
+  outline: 3px solid var(--tier-krillion);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 5px var(--abyss), inset 0 0 0 7px var(--tier-rare), 0 0 18px rgb(255 209 102 / 0.45);
+}
+.kr-nasty .kr-row[data-rank="1"] .kr-row__rank { color: var(--tier-krillion); }
+.kr-nasty .kr-row[data-rank="2"] .kr-row__rank { color: var(--tier-deepcut); }
+.kr-nasty .kr-row--me { background: var(--blood); }
+
+.kr-loot {
+  display: inline-block;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+  color: var(--abyss);
+  box-shadow: 0 0 0 3px var(--abyss);
+}
+.kr-loot--gold { background: var(--tier-krillion); animation: kr-flash 900ms steps(1) infinite; }
+.kr-loot--orange { background: var(--tier-tooclever); }
+.kr-loot--red { background: var(--tier-rare); }
+@keyframes kr-flash { 50% { background: var(--tier-rare); } }
+
+.kr-tally--gold { color: var(--tier-krillion); }
+.kr-tally--orange { color: var(--tier-tooclever); }
+.kr-tally--red { color: var(--tier-rare); }
+
+.kr-ticker {
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--tier-krillion);
+  color: var(--abyss);
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  padding: 3px 0;
+  margin-bottom: 20px;
+  box-shadow: 0 0 0 2px var(--abyss), 0 0 0 4px var(--tier-rare);
+}
+.kr-ticker span { display: inline-block; padding-left: 100%; animation: kr-tape 18s linear infinite; }
+@keyframes kr-tape { to { transform: translateX(-100%); } }
+
+.kr-stub {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 2px dashed var(--tier-rare);
+  padding-top: 8px;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  color: var(--tier-tooclever);
+}
+.kr-stub b { color: var(--tier-krillion); font-weight: 400; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kr-btn { transition: none; }
+  .kr-loot--gold, .kr-ticker span { animation: none; }
+  .kr-ticker span { padding-left: 8px; }
 }
 
 /* House style: no capital letters anywhere. Display-only: typed values and stored

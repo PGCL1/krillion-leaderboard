@@ -2,15 +2,23 @@
 export function Avatar({ src, name, size = 28 }: { src: string | null; name: string; size?: number }) {
   if (src) {
     return (
-      <img src={src} alt="" width={size} height={size} referrerPolicy="no-referrer" className="rounded-full shrink-0" />
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        referrerPolicy="no-referrer"
+        className="shrink-0"
+        style={{ imageRendering: "pixelated" }}
+      />
     );
   }
   return (
     <span
-      style={{ width: size, height: size }}
-      className="rounded-full shrink-0 bg-accent/20 text-accent grid place-items-center text-xs font-bold"
+      style={{ width: size, height: size, background: "var(--ring)", color: "var(--cyan)" }}
+      className="shrink-0 grid place-items-center text-lg"
     >
-      {name.slice(0, 1).toUpperCase()}
+      {name.slice(0, 1)}
     </span>
   );
 }

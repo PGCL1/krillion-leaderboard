@@ -23,6 +23,13 @@ function envList(name: string): string[] {
     .filter(Boolean);
 }
 
+type ClerkUser = NonNullable<Awaited<ReturnType<typeof currentUser>>>;
+
+/** The user's own uploaded picture, or null for Clerk's blank placeholder (we show a pixel initial instead). */
+function avatarOf(user: ClerkUser): string | null {
+  return user.hasImage ? user.imageUrl : null;
+}
+
 async function getPlayer(userId: string): Promise<Player | null> {
   const { data } = await createAdminClient().from("players").select(PLAYER_COLS).eq("id", userId).maybeSingle();
   return (data as Player) ?? null;
@@ -41,7 +48,7 @@ export async function onboard(inviteCode: string | undefined): Promise<Player | 
   const email = user.primaryEmailAddress?.emailAddress ?? "";
   const username = user.username ?? "";
   const name = user.fullName || user.firstName || user.username || email.split("@")[0] || "Player";
-  const avatar = user.imageUrl || null;
+  const avatar = avatarOf(user);
   const admin = createAdminClient();
 
   const isAdmin =
@@ -74,8 +81,25 @@ export async function requirePlayer(): Promise<Player> {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const player =
-    (await getPlayer(userId)) ?? (await onboard((await cookies()).get(INVITE_COOKIE)?.value));
-  if (!player) redirect("/not-invited");
-  return player;
+  const existing = await getPlayer(userId);
+  if (!existing) {
+    const player = await onboard((await cookies()).get(INVITE_COOKIE)?.value);
+    if (!player) redirect("/not-invited");
+    return player;
+  }
+  return syncAvatar(existing);
+}
+
+/** Keeps the stored picture in step with Clerk, so a photo added or changed later shows on the boards. */
+async function syncAvatar(player: Player): Promise<Player> {
+  const user = await currentUser();
+  if (!user) return player;
+  const avatar = avatarOf(user);
+  if (avatar === player.avatar_url) return player;
+  const { error } = await createAdminClient().from("players").update({ avatar_url: avatar }).eq("id", player.id);
+  if (error) {
+    console.error("avatar sync failed", error.message);
+    return player;
+  }
+  return { ...player, avatar_url: avatar };
 }

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "seed:clear": "node --env-file=.env.local scripts/seed.mjs --clear"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.10.7",
