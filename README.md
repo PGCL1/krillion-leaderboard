@@ -1,11 +1,12 @@
 # 🦐 Krillion Leaderboard
 
 Daily + overall leaderboard for a friend group playing [krillion.io](https://krillion.io).
-Next.js (App Router) + Clerk (Google sign-in) + Supabase (Postgres) on Vercel.
+Next.js (App Router) + Clerk (username + password) + Supabase (Postgres) on Vercel.
 
 ## How it works
 
-- **Sign in with Google** via Clerk. Only approved players get in: emails in `ADMIN_EMAILS` are auto-approved;
+- **Sign in with username + password** via Clerk (no email, no Google). Only approved players get in: usernames in
+  `ADMIN_USERNAMES` are auto-approved;
   everyone else needs an invite link (`/invite/<code>`), created by an admin on `/admin`.
 - **Submit** by pasting Krillion's share text (`Krillion #129 🦐` / `180` / emoji grid).
   The server parses it, checks it's *today's* game number, and stores it. One score per player per game, no edits
@@ -18,15 +19,17 @@ Next.js (App Router) + Clerk (Google sign-in) + Supabase (Postgres) on Vercel.
 
 1. **Supabase** (database only): create a project. In the SQL editor, run `supabase/migrations/0001_init.sql`.
    Copy the project URL and the `service_role` key.
-2. **Clerk** (auth): create an application with **Google** as the only sign-in option.
-   - Development instances work with Google immediately using Clerk's shared credentials.
-   - For production, add your own Google OAuth client in Clerk → Configure → SSO connections → Google
-     (Clerk shows the redirect URI to paste into Google Cloud Console).
+2. **Clerk** (auth): create an application, then in Configure → User & authentication:
+   - **Email**: turn off sign-up and sign-in with email (and phone, if shown).
+   - **Username**: turn on, required.
+   - **Password**: turn on.
+   - **SSO connections**: remove Google and any other social providers.
    - Copy the publishable and secret keys.
+   - With no email there's no "forgot password" — reset a player's password from the Clerk dashboard (Users).
 3. **Env vars**: copy `.env.example` to `.env.local` and fill it in. Set the same vars in Vercel.
    - `KRILLION_REFERENCE_GAME` / `KRILLION_REFERENCE_DATE`: any game number and the date it was the daily puzzle.
    - `KRILLION_TIMEZONE`: the IANA timezone the "day" is counted in (e.g. `America/Toronto`).
-4. `npm install && npm run dev` → http://localhost:3000. Sign in with an admin email, go to **Admin**, create an
+4. `npm install && npm run dev` → http://localhost:3000. Sign up with your admin username, go to **Admin**, create an
    invite link, share it in the group chat.
 5. **Deploy**: push to GitHub, import into Vercel, add the env vars.
 

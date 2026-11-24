@@ -7,8 +7,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Krillion Leaderboard",
-  description: "Daily and overall Krillion scores for the crew.",
+  title: "krillion leaderboard",
+  description: "daily and overall krillion scores for the crew.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -16,8 +16,8 @@ export type Player = {
 
 const PLAYER_COLS = "id, email, display_name, avatar_url, is_admin";
 
-function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS ?? "")
+function envList(name: string): string[] {
+  return (process.env[name] ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
@@ -30,7 +30,7 @@ async function getPlayer(userId: string): Promise<Player | null> {
 
 /**
  * Makes sure the signed-in Clerk user is an approved player.
- * Admin emails are auto-approved; everyone else needs a valid invite code.
+ * Admin usernames/emails are auto-approved; everyone else needs a valid invite code.
  */
 export async function onboard(inviteCode: string | undefined): Promise<Player | null> {
   const user = await currentUser();
@@ -39,11 +39,16 @@ export async function onboard(inviteCode: string | undefined): Promise<Player | 
   if (existing) return existing;
 
   const email = user.primaryEmailAddress?.emailAddress ?? "";
+  const username = user.username ?? "";
   const name = user.fullName || user.firstName || user.username || email.split("@")[0] || "Player";
   const avatar = user.imageUrl || null;
   const admin = createAdminClient();
 
-  if (email && adminEmails().includes(email.toLowerCase())) {
+  const isAdmin =
+    (username && envList("ADMIN_USERNAMES").includes(username.toLowerCase())) ||
+    (email && envList("ADMIN_EMAILS").includes(email.toLowerCase()));
+
+  if (isAdmin) {
     const { error } = await admin
       .from("players")
       .upsert({ id: user.id, email, display_name: name, avatar_url: avatar, is_admin: true }, { onConflict: "id" });

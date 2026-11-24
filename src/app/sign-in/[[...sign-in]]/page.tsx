@@ -1,4 +1,4 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignInForm } from "@/components/SignInForm";
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ invited?: string }> }) {
   const { invited } = await searchParams;
@@ -11,7 +11,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           {invited ? "You've been invited! Sign in to join." : "Sign in to see the leaderboard and submit your daily score."}
         </p>
       </div>
-      <SignIn forceRedirectUrl="/" signUpForceRedirectUrl="/" />
+      <SignInForm />
     </main>
   );
 }

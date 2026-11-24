@@ -36,3 +36,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* House style: no capital letters anywhere. Display-only: typed values and stored
+   data keep their real case. !important so it also wins over Clerk's widget styles. */
+html,
+html *,
+html *::before,
+html *::after,
+html *::placeholder {
+  text-transform: lowercase !important;
+}
