@@ -6,6 +6,8 @@ import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
 import { CopyButton } from "@/components/CopyButton";
 import { createInvite, revokeInvite } from "./actions";
+import { FeedbackBottle } from "@/components/FeedbackBottle";
+import { allFeedback, recentFeedback } from "@/lib/feedback";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +25,11 @@ export default async function Admin() {
   if (!me.is_admin) redirect("/");
 
   const admin = createAdminClient();
-  const [{ data: invites }, { data: players }] = await Promise.all([
+  const [{ data: invites }, { data: players }, feedback, myBottles] = await Promise.all([
     admin.from("invites").select("*").order("created_at", { ascending: false }),
     admin.from("players").select("id, email, display_name, avatar_url, is_admin, joined_at").order("joined_at"),
+    allFeedback(),
+    recentFeedback(me.id),
   ]);
 
   const h = await headers();
@@ -37,6 +41,31 @@ export default async function Admin() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-16">
       <Header player={me} />
+
+      <section className="mb-10">
+        <h2 className="text-4xl leading-none">
+          messages in bottles <span className="text-muted text-base">· {feedback.length}</span>
+        </h2>
+        {feedback.length === 0 ? (
+          <p className="text-muted mt-4 text-base">no bottles have washed up yet.</p>
+        ) : (
+          <ul className="kr-board mt-6">
+            {feedback.map((f) => (
+              <li key={f.id} className="border-b border-line px-3 py-3 last:border-b-0">
+                <div className="flex flex-wrap items-center gap-3 text-base">
+                  <span className={`kr-tag ${f.kind === "bug" ? "kr-tag--pink" : ""}`}>{f.kind}</span>
+                  <span>{f.players?.display_name ?? "a former diver"}</span>
+                  <span className="text-muted ml-auto">
+                    {new Date(f.created_at).toISOString().slice(0, 16).replace("T", " ")}
+                    {f.page ? ` · ${f.page}` : ""}
+                  </span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-lg">{f.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-2xl border border-line bg-card p-4 sm:p-5">
         <h2 className="font-semibold">New invite link</h2>
@@ -101,6 +130,7 @@ export default async function Admin() {
           ))}
         </ul>
       </section>
+      <FeedbackBottle name={me.display_name} recent={myBottles} />
     </main>
   );
 }

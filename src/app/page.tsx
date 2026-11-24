@@ -7,6 +7,8 @@ import { cutoffTime, isProvisional, payDive, type Payout } from "@/lib/capitalis
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
 import { SubmitForm } from "@/components/SubmitForm";
+import { FeedbackBottle } from "@/components/FeedbackBottle";
+import { recentFeedback } from "@/lib/feedback";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +54,10 @@ export default async function Home({
   const gameParam = game === current.gameNumber ? undefined : game;
 
   const supabase = createAdminClient();
-  const { data: mine } = await supabase
-    .from("scores")
-    .select("score")
-    .eq("player_id", player.id)
-    .eq("game_number", current.gameNumber)
-    .maybeSingle();
+  const [{ data: mine }, myBottles] = await Promise.all([
+    supabase.from("scores").select("score").eq("player_id", player.id).eq("game_number", current.gameNumber).maybeSingle(),
+    recentFeedback(player.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-16">
@@ -110,6 +110,8 @@ export default async function Home({
           </>
         )}
       </div>
+
+      <FeedbackBottle name={player.display_name} recent={myBottles} />
     </main>
   );
 }

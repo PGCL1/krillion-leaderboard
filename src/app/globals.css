@@ -297,10 +297,107 @@ body::after {
 }
 .kr-stub b { color: var(--tier-krillion); font-weight: 400; }
 
+/* ---- feedback bottle (bottom right) + paper note drawer ---- */
+:root {
+  --paper: #e9dcb8;
+  --paper-line: #cdb98a;
+  --paper-edge: #a5844a;
+  --paper-ink: #3a2a12;
+  --paper-muted: #6b5532;
+}
+.kr-px { image-rendering: pixelated; shape-rendering: crispEdges; display: block; }
+
+.kr-bottle {
+  position: fixed;
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 60; /* above the CRT overlay */
+  transition: transform 220ms steps(5);
+}
+.kr-bottle--peek { transform: translateX(calc(100% - 4px + env(safe-area-inset-right, 0px))); }
+.kr-bottle__btn { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; display: block; }
+.kr-bottle__btn:focus-visible { outline: 3px solid var(--pink); outline-offset: 4px; }
+.kr-bottle__bob { display: block; animation: kr-bob 2.6s steps(4) infinite; filter: drop-shadow(0 0 10px rgb(77 227 255 / 0.5)); }
+.kr-bottle__tilt { display: block; position: relative; transform: rotate(-14deg); }
+.kr-bottle__shrimp {
+  position: absolute; left: 40px; top: 50px; font-size: 12px; line-height: 1;
+  filter: drop-shadow(0 0 4px rgb(255 93 143 / 0.7));
+}
+@keyframes kr-bob { 50% { transform: translateY(-4px); } }
+.kr-bottle__say {
+  position: absolute; right: 8px; bottom: 100%; margin-bottom: 10px; white-space: nowrap; pointer-events: none;
+  background: var(--paper); color: var(--paper-ink); font-size: 16px; letter-spacing: 0.08em; padding: 4px 8px;
+  box-shadow: 0 0 0 2px var(--abyss), 3px 3px 0 2px var(--paper-edge);
+}
+.kr-bottle__say::after {
+  content: ""; position: absolute; right: 26px; bottom: -8px; width: 8px; height: 8px;
+  background: var(--paper); clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.kr-bottle__hide {
+  position: absolute; top: -8px; left: -22px; z-index: 1; appearance: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 14px; letter-spacing: 0.08em; background: var(--deep-200); color: var(--muted);
+  padding: 2px 6px; box-shadow: var(--frame-secondary); opacity: 0; transition: opacity 120ms;
+}
+.kr-bottle:hover .kr-bottle__hide, .kr-bottle:focus-within .kr-bottle__hide { opacity: 1; }
+.kr-bottle__hide:hover { color: var(--ink); }
+@media (hover: none) { .kr-bottle__hide { opacity: 1; } }
+
+.kr-scrim { position: fixed; inset: 0; z-index: 65; background: rgb(5 10 20 / 0.65); }
+.kr-note {
+  position: fixed; top: 0; bottom: 0; right: 0; z-index: 70; width: min(420px, 92vw); overflow-y: auto;
+  display: grid; gap: 14px; align-content: start;
+  padding: calc(18px + env(safe-area-inset-top, 0px)) calc(18px + env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) 18px;
+  background: var(--paper); color: var(--paper-ink);
+  box-shadow: -3px 0 0 var(--abyss), -6px 0 0 var(--paper-edge);
+  transform: translateX(105%); transition: transform 180ms steps(4); visibility: hidden;
+}
+.kr-note--open { transform: none; visibility: visible; }
+.kr-note__hd { display: flex; justify-content: space-between; align-items: center; font-size: 28px; }
+.kr-note__x { appearance: none; border: 0; background: none; font: inherit; font-size: 26px; color: inherit; cursor: pointer; opacity: 0.7; }
+.kr-note__x:hover { opacity: 1; }
+.kr-note__sub { color: var(--paper-muted); font-size: 15px; letter-spacing: 0.12em; }
+.kr-note__kinds { display: flex; flex-wrap: wrap; gap: 10px; }
+.kr-note__kind {
+  appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 16px; letter-spacing: 0.1em; padding: 4px 10px;
+  background: transparent; color: var(--paper-muted); box-shadow: 0 0 0 2px var(--paper-edge);
+}
+.kr-note__kind[aria-checked="true"] { background: var(--paper-ink); color: var(--paper); box-shadow: 0 0 0 2px var(--paper-ink); }
+.kr-note__text {
+  margin-top: 14px; width: 100%; resize: vertical; border: 0; outline: none; padding: 4px 2px;
+  font: inherit; font-size: 20px; letter-spacing: 0.04em; line-height: 26px; color: var(--paper-ink);
+  background: transparent repeating-linear-gradient(transparent 0 25px, var(--paper-line) 25px 26px);
+}
+.kr-note__text::placeholder { color: var(--paper-muted); }
+.kr-note__err { margin-top: 8px; color: #9a1f1f; font-size: 16px; }
+.kr-note__send {
+  margin-top: 14px; appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 22px; letter-spacing: 0.12em;
+  padding: 6px 14px; background: var(--paper-ink); color: var(--paper); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--paper-ink);
+}
+.kr-note__send:active { transform: translateY(3px); }
+.kr-note__send:disabled { opacity: 0.6; cursor: wait; }
+.kr-note button:focus-visible, .kr-note textarea:focus-visible { outline: 3px solid var(--pink); outline-offset: 4px; }
+.kr-note__thanks { text-align: center; font-size: 20px; padding: 16px 0; }
+.kr-note__thanks span { display: block; font-size: 38px; }
+.kr-note__log { border-top: 2px dashed var(--paper-edge); padding-top: 10px; display: grid; gap: 6px; font-size: 16px; color: var(--paper-muted); }
+.kr-note__item { color: var(--paper-ink); overflow-wrap: anywhere; }
+.kr-note__item b { color: #9a3b1e; font-weight: 400; }
+
+.kr-throw { position: fixed; right: 60px; bottom: 120px; z-index: 75; font-size: 34px; pointer-events: none; animation: kr-arc 900ms steps(9) forwards; }
+@keyframes kr-arc {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  50% { transform: translate(-120px, -140px) rotate(-200deg); }
+  100% { transform: translate(-220px, 110px) rotate(-420deg); opacity: 0; }
+}
+.kr-splash { position: fixed; right: 270px; bottom: 20px; z-index: 75; font-size: 30px; pointer-events: none; opacity: 0; animation: kr-splash 700ms steps(4) 900ms forwards; }
+@keyframes kr-splash { 0% { transform: scale(0.4); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .kr-btn { transition: none; }
   .kr-loot--gold, .kr-ticker span { animation: none; }
   .kr-ticker span { padding-left: 8px; }
+  .kr-bottle, .kr-note { transition: none; }
+  .kr-bottle__bob, .kr-throw, .kr-splash { animation: none; }
+  .kr-throw, .kr-splash { display: none; }
 }
 
 /* House style: no capital letters anywhere. Display-only: typed values and stored
