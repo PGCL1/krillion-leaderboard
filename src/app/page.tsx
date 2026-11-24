@@ -12,7 +12,6 @@ export const dynamic = "force-dynamic";
 
 const MIN_GAMES = Math.max(1, Number(process.env.MIN_GAMES_FOR_RANKING ?? 3) || 1);
 
-type View = "daily" | "overall";
 type Mode = "real" | "cap";
 type PlayerInfo = { display_name: string; avatar_url: string | null } | null;
 type ScoreRow = {
@@ -32,11 +31,10 @@ type OverallRow = {
 };
 
 /** Builds a home-page link, keeping the other settings. */
-function homeHref(p: { view: View; mode: Mode; game?: number }) {
+function homeHref(p: { mode: Mode; game?: number }) {
   const q = new URLSearchParams();
-  if (p.view === "overall") q.set("view", "overall");
   if (p.mode === "cap") q.set("mode", "cap");
-  if (p.view === "daily" && p.game !== undefined) q.set("game", String(p.game));
+  if (p.game !== undefined) q.set("game", String(p.game));
   const s = q.toString();
   return s ? `/?${s}` : "/";
 }
@@ -44,11 +42,10 @@ function homeHref(p: { view: View; mode: Mode; game?: number }) {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; game?: string; mode?: string }>;
+  searchParams: Promise<{ game?: string; mode?: string }>;
 }) {
   const player = await requirePlayer();
   const sp = await searchParams;
-  const view: View = sp.view === "overall" ? "overall" : "daily";
   const mode: Mode = sp.mode === "cap" ? "cap" : "real";
   const current = today();
   const game = Math.min(current.gameNumber, Math.max(1, Number(sp.game) || current.gameNumber));
@@ -81,27 +78,17 @@ export default async function Home({
         )}
       </div>
 
-      <nav className="mt-10 flex flex-wrap items-center gap-4">
-        {(["daily", "overall"] as const).map((v) => (
-          <Link
-            key={v}
-            href={homeHref({ view: v, mode, game: gameParam })}
-            aria-current={view === v}
-            className="kr-btn kr-btn--secondary"
-          >
-            {v}
-          </Link>
-        ))}
-        <span className="kr-sep" aria-hidden />
+      {/* One switch for both tables: real scores, or yuki capitalist (score + podium loot). */}
+      <nav className="mt-10 flex flex-wrap items-center gap-4" aria-label="scoring">
         <Link
-          href={homeHref({ view, mode: "real", game: gameParam })}
+          href={homeHref({ mode: "real", game: gameParam })}
           aria-current={mode === "real"}
           className="kr-btn kr-btn--secondary"
         >
           real
         </Link>
         <Link
-          href={homeHref({ view, mode: "cap", game: gameParam })}
+          href={homeHref({ mode: "cap", game: gameParam })}
           aria-current={mode === "cap"}
           className="kr-btn kr-btn--secondary kr-btn--cap"
         >
@@ -109,17 +96,18 @@ export default async function Home({
         </Link>
       </nav>
 
+      {/* Daily table first, overall table under it. */}
       <div className={mode === "cap" ? "kr-nasty" : undefined}>
-        {view === "daily" ? (
-          mode === "cap" ? (
+        {mode === "cap" ? (
+          <>
             <DailyCap game={game} currentGame={current.gameNumber} meId={player.id} />
-          ) : (
-            <Daily game={game} currentGame={current.gameNumber} meId={player.id} />
-          )
-        ) : mode === "cap" ? (
-          <OverallCap meId={player.id} />
+            <OverallCap meId={player.id} />
+          </>
         ) : (
-          <Overall meId={player.id} />
+          <>
+            <Daily game={game} currentGame={current.gameNumber} meId={player.id} />
+            <Overall meId={player.id} />
+          </>
         )}
       </div>
     </main>
@@ -138,12 +126,12 @@ function DiveHeader({ game, currentGame, mode, note }: { game: number; currentGa
         </span>
       </h2>
       <div className="flex gap-4">
-        <Link href={homeHref({ view: "daily", mode, game: game - 1 })} className="kr-btn kr-btn--secondary">
+        <Link href={homeHref({ mode, game: game - 1 })} className="kr-btn kr-btn--secondary">
           ◀ prev
         </Link>
         {game < currentGame && (
           <Link
-            href={homeHref({ view: "daily", mode, game: game + 1 === currentGame ? undefined : game + 1 })}
+            href={homeHref({ mode, game: game + 1 === currentGame ? undefined : game + 1 })}
             className="kr-btn kr-btn--secondary"
           >
             next ▶
@@ -293,7 +281,7 @@ async function Overall({ meId }: { meId: string }) {
   );
 
   return (
-    <section className="mt-8">
+    <section className="mt-16">
       <h2 className="text-4xl leading-none">overall</h2>
       <p className="text-muted mt-1 text-base tracking-[0.1em]">average per dive played · missed days don&apos;t count</p>
       {ranked.length === 0 ? (
@@ -371,7 +359,7 @@ async function OverallCap({ meId }: { meId: string }) {
   const broke = ranked.filter((h) => h.loot === 0);
 
   return (
-    <section className="mt-8">
+    <section className="mt-16">
       <h2 className="kr-h text-4xl leading-none">overall haul 🤑</h2>
       <p className="kr-sub mt-1 text-base tracking-[0.1em]">every dive&apos;s score + loot, added up · no averages</p>
       {ranked.length === 0 ? (
