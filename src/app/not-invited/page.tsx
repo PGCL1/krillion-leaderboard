@@ -1,6 +1,14 @@
 import { SignOutButton } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
+import { isPlayer } from "@/lib/auth";
 
-export default function NotInvited() {
+export const dynamic = "force-dynamic";
+
+export default async function NotInvited() {
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  if (await isPlayer(userId)) redirect("/");
   return (
     <main className="mx-auto grid min-h-dvh max-w-sm place-items-center px-4">
       <div className="text-center">

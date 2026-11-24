@@ -83,11 +83,22 @@ export async function requirePlayer(): Promise<Player> {
 
   const existing = await getPlayer(userId);
   if (!existing) {
-    const player = await onboard((await cookies()).get(INVITE_COOKIE)?.value);
-    if (!player) redirect("/not-invited");
-    return player;
+    const invite = (await cookies()).get(INVITE_COOKIE)?.value;
+    const player = await onboard(invite);
+    if (player) return player;
+    // Right after sign-up the browser fires several page loads at once; another one may have just
+    // redeemed the invite. Look again before turning anyone away.
+    const late = await getPlayer(userId);
+    if (late) return late;
+    console.warn(`not-invited: user=${userId} invite_cookie=${invite ? "present" : "missing"}`);
+    redirect("/not-invited");
   }
   return syncAvatar(existing);
+}
+
+/** True if this signed-in user is already an approved player. */
+export async function isPlayer(userId: string): Promise<boolean> {
+  return (await getPlayer(userId)) !== null;
 }
 
 /** Keeps the stored picture in step with Clerk, so a photo added or changed later shows on the boards. */

@@ -13,10 +13,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         <h1 className="kr-wordmark">krillion</h1>
         <div className="kr-tagline mt-2">leaderboard</div>
         <p className="text-muted mt-6 text-base tracking-[0.1em]">
-          {invited ? "You've been invited! Sign in to join." : "Sign in to see the leaderboard and submit your daily score."}
+          {invited ? "you've been invited! new here? create an account below." : "sign in to see the leaderboard and submit your daily score."}
         </p>
       </div>
-      <AuthForm mode="sign-in" />
+      <AuthForm mode="sign-in" invited={Boolean(invited)} />
     </main>
   );
 }

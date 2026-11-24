@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSignIn, useSignUp } from "@clerk/nextjs/legacy";
 
 type Mode = "sign-in" | "sign-up";
@@ -16,10 +15,9 @@ const COPY = {
  * One-screen username + password form, styled like the rest of the app.
  * Clerk still does the actual auth; this replaces its two-step, white-card widgets.
  */
-export function AuthForm({ mode }: { mode: Mode }) {
+export function AuthForm({ mode, invited = false }: { mode: Mode; invited?: boolean }) {
   const signInHook = useSignIn();
   const signUpHook = useSignUp();
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,11 +25,23 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const copy = COPY[mode];
   const isLoaded = mode === "sign-in" ? signInHook.isLoaded : signUpHook.isLoaded;
 
+  /**
+   * Leave with a full page load once the session is set. Clerk's provider already runs its own
+   * router.refresh() on the current route (/sign-in or /sign-up) right after setActive; a client-side
+   * router.replace("/") racing that refresh could leave the form on screen with the session already
+   * created, so the user had to click a second time. A full load has no race, and the server renders "/"
+   * with the new session cookie (onboarding via the invite cookie happens there).
+   */
+  function goHome() {
+    window.location.assign("/");
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || !isLoaded) return;
     setBusy(true);
     setError(null);
+    let leaving = false;
     try {
       const identifier = username.trim();
       let sessionId: string | null = null;
@@ -53,8 +63,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       if (sessionId) {
         await setActive({ session: sessionId });
-        router.replace("/");
-        router.refresh();
+        leaving = true;
+        goHome();
       } else {
         setError((prev) => prev ?? "This account needs an extra step that isn't supported here.");
       }
@@ -62,13 +72,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
       const e = err as { errors?: { code?: string; longMessage?: string; message?: string }[] };
       if (e.errors?.[0]?.code === "session_exists") {
         // Already signed in in this browser: just go in.
-        router.replace("/");
-        router.refresh();
+        leaving = true;
+        goHome();
         return;
       }
       setError(e.errors?.[0]?.longMessage ?? e.errors?.[0]?.message ?? "Something went wrong. Please try again.");
     } finally {
-      setBusy(false);
+      // Stay busy while the page navigates away, so the button can't be pressed again.
+      if (!leaving) setBusy(false);
     }
   }
 
@@ -107,11 +118,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
         disabled={!isLoaded || busy}
         className="kr-btn w-full"
       >
-        {busy ? copy.busy : `▼ ${copy.button} ▼`}
+        {busy ? copy.busy : !isLoaded ? "loading…" : `▼ ${copy.button} ▼`}
       </button>
       <p className="text-muted text-center text-base">
         {copy.prompt}{" "}
-        <Link href={copy.href} className="text-accent">
+        <Link href={invited ? `${copy.href}?invited=1` : copy.href} className="text-accent">
           {copy.link}
         </Link>
       </p>

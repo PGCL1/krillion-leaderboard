@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import { INVITE_COOKIE, onboard } from "@/lib/auth";
 
-// /invite/<code>: remember the code, then send the user through sign-in.
+// /invite/<code>: remember the code, then send the new friend to create an account.
 // The code is redeemed the first time an approved-player check runs (see requirePlayer).
 export async function GET(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -16,5 +16,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const player = await onboard(code);
     return NextResponse.redirect(`${origin}${player ? "/" : "/not-invited"}`);
   }
-  return NextResponse.redirect(`${origin}/sign-in?invited=1`);
+  return NextResponse.redirect(`${origin}/sign-up?invited=1`);
 }
