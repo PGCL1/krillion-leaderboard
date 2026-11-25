@@ -9,7 +9,8 @@ Next.js (App Router) + Clerk (username + password) + Supabase (Postgres) on Verc
   `ADMIN_USERNAMES` are auto-approved;
   everyone else needs an invite link (`/invite/<code>`), created by an admin on `/admin`.
 - **Submit** by pasting Krillion's share text (`Krillion #129 🦐` / `180` / emoji grid).
-  The server parses it, checks it's *today's* game number, and stores it. One score per player per game, no edits
+  The server parses it and stores it under whatever game number the share text names (no "is this today's game"
+  check, since Krillion can roll over at a different time for a player than `KRILLION_TIMEZONE` does). One score per player per game, no edits
   (enforced by a unique constraint in the DB).
 - **Daily board**: ranks scores for a game; browse past games with Prev/Next. Shows who still has to play today.
 - **Overall board**: average score per game *played* — missed days don't count, so late joiners aren't penalized.

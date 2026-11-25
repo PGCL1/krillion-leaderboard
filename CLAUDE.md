@@ -28,7 +28,7 @@ npm run seed         # fake players/scores (ids prefixed "seed_"); seed:clear re
 
 ## Rules
 - One score per player per game, no edits. The DB unique constraint enforces this; don't add an edit path.
-- Only *today's* game number can be submitted, computed in `KRILLION_TIMEZONE`, not UTC or server time.
+- Any game number the parsed share text contains can be submitted; there is no "is this today's game" check (Krillion's rollover can differ from `KRILLION_TIMEZONE`). `KRILLION_TIMEZONE` is still what decides which game the home page treats as today.
 - Overall ranking = average per game *played*. Missed days don't count. Under `MIN_GAMES_FOR_RANKING` games = provisional.
 - Design system lives in `src/app/globals.css`: dark "abyss" theme, VT323 pixel font, pixel frames via `--frame-*` box-shadows, tier colors. Reuse the CSS variables. Don't introduce new colors or fonts.
 - Secrets: real keys only in `.env.local`. `.githooks/pre-commit` blocks env files and key-shaped strings. Add new env vars to `.env.example` with placeholder values.
