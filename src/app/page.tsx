@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePlayer } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dateForGameNumber, gameConfig, today } from "@/lib/game";
-import { withRanks } from "@/lib/rank";
+import { MIN_GAMES, withRanks } from "@/lib/rank";
 import { cutoffTime, isProvisional, payDive, type Payout } from "@/lib/capitalist";
 import { Header } from "@/components/Header";
 import { Avatar } from "@/components/Avatar";
@@ -11,8 +11,6 @@ import { FeedbackBottle } from "@/components/FeedbackBottle";
 import { recentFeedback } from "@/lib/feedback";
 
 export const dynamic = "force-dynamic";
-
-const MIN_GAMES = Math.max(1, Number(process.env.MIN_GAMES_FOR_RANKING ?? 3) || 1);
 
 type Mode = "real" | "cap";
 type PlayerInfo = { display_name: string; avatar_url: string | null } | null;
@@ -55,8 +53,8 @@ export default async function Home({
 
   const supabase = createAdminClient();
   const [{ data: mine }, myBottles] = await Promise.all([
-    supabase.from("scores").select("score").eq("player_id", player.id).eq("game_number", current.gameNumber).maybeSingle(),
-    recentFeedback(player.id),
+    supabase.from("scores").select("score").eq("player_id", player.username).eq("game_number", current.gameNumber).maybeSingle(),
+    recentFeedback(player.username),
   ]);
 
   return (
@@ -100,13 +98,13 @@ export default async function Home({
       <div className={mode === "cap" ? "kr-nasty" : undefined}>
         {mode === "cap" ? (
           <>
-            <DailyCap game={game} currentGame={current.gameNumber} meId={player.id} />
-            <OverallCap meId={player.id} />
+            <DailyCap game={game} currentGame={current.gameNumber} meId={player.username} />
+            <OverallCap meId={player.username} />
           </>
         ) : (
           <>
-            <Daily game={game} currentGame={current.gameNumber} meId={player.id} />
-            <Overall meId={player.id} />
+            <Daily game={game} currentGame={current.gameNumber} meId={player.username} />
+            <Overall meId={player.username} />
           </>
         )}
       </div>
@@ -144,6 +142,13 @@ function DiveHeader({ game, currentGame, mode, note }: { game: number; currentGa
   );
 }
 
+/** A player's name, linking to their log. */
+const LogLink = ({ id, children }: { id: string; children: React.ReactNode }) => (
+  <Link href={`/players/${encodeURIComponent(id)}`} className="kr-row__link">
+    {children}
+  </Link>
+);
+
 const you = (id: string, meId: string) => id === meId && <span className="kr-tag kr-tag--pink">you</span>;
 
 async function Daily({ game, currentGame, meId }: { game: number; currentGame: number; meId: string }) {
@@ -155,12 +160,12 @@ async function Daily({ game, currentGame, meId }: { game: number; currentGame: n
       .eq("game_number", game)
       .order("score", { ascending: false })
       .order("submitted_at", { ascending: true }),
-    supabase.from("players").select("id, display_name, joined_at"),
+    supabase.from("players").select("username, display_name, joined_at"),
   ]);
   const rows = withRanks((scores ?? []) as unknown as ScoreRow[], (r) => r.score);
   const played = new Set(rows.map((r) => r.player_id));
   const gameDate = dateForGameNumber(game);
-  const waiting = (players ?? []).filter((p) => !played.has(p.id) && p.joined_at.slice(0, 10) <= gameDate);
+  const waiting = (players ?? []).filter((p) => !played.has(p.username) && p.joined_at.slice(0, 10) <= gameDate);
 
   return (
     <section className="mt-8">
@@ -175,7 +180,7 @@ async function Daily({ game, currentGame, meId }: { game: number; currentGame: n
               <span className="kr-row__rank">{r.rank}</span>
               <Avatar src={r.players?.avatar_url ?? null} name={r.players?.display_name ?? "?"} />
               <span className="kr-row__name">
-                {r.players?.display_name} {you(r.player_id, meId)}
+                <LogLink id={r.player_id}>{r.players?.display_name}</LogLink> {you(r.player_id, meId)}
               </span>
               <span className="kr-row__score">{r.score}</span>
             </li>
@@ -244,7 +249,7 @@ async function DailyCap({ game, currentGame, meId }: { game: number; currentGame
               <span className="kr-row__rank">{r.rank}</span>
               <Avatar src={r.players?.avatar_url ?? null} name={r.players?.display_name ?? "?"} />
               <span className="kr-row__name">
-                {r.players?.display_name} {you(r.player_id, meId)} <Loot r={r} />
+                <LogLink id={r.player_id}>{r.players?.display_name}</LogLink> {you(r.player_id, meId)} <Loot r={r} />
               </span>
               <span className="kr-row__score">{r.total}</span>
             </li>
@@ -273,7 +278,7 @@ async function Overall({ meId }: { meId: string }) {
       <span className="kr-row__rank">{rank ?? "·"}</span>
       <Avatar src={r.avatar_url} name={r.display_name} />
       <span className="kr-row__name">
-        {r.display_name}
+        <LogLink id={r.player_id}>{r.display_name}</LogLink>
         <span className="kr-row__meta">
           {r.games_played} {r.games_played === 1 ? "dive" : "dives"} · best {r.best_score}
         </span>
@@ -373,7 +378,7 @@ async function OverallCap({ meId }: { meId: string }) {
               <span className="kr-row__rank">{h.rank}</span>
               <Avatar src={h.players?.avatar_url ?? null} name={h.players?.display_name ?? "?"} />
               <span className="kr-row__name">
-                {h.players?.display_name} {you(h.player_id, meId)}
+                <LogLink id={h.player_id}>{h.players?.display_name}</LogLink> {you(h.player_id, meId)}
                 <span className="kr-row__meta">
                   {h.dives} {h.dives === 1 ? "dive" : "dives"}
                   {h.gold > 0 && <span className="kr-tally--gold"> · 💰×{h.gold}</span>}

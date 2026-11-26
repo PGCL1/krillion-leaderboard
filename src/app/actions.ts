@@ -20,7 +20,7 @@ export async function submitScore(_prev: SubmitState, formData: FormData): Promi
   const { gameNumber, score } = parsed.value;
 
   const { error } = await createAdminClient().from("scores").insert({
-    player_id: player.id,
+    player_id: player.username,
     game_number: gameNumber,
     score,
     raw: raw.trim(),

@@ -27,9 +27,9 @@ export default async function Admin() {
   const admin = createAdminClient();
   const [{ data: invites }, { data: players }, feedback, myBottles] = await Promise.all([
     admin.from("invites").select("*").order("created_at", { ascending: false }),
-    admin.from("players").select("id, email, display_name, avatar_url, is_admin, joined_at").order("joined_at"),
+    admin.from("players").select("username, display_name, avatar_url, is_admin, joined_at").order("joined_at"),
     allFeedback(),
-    recentFeedback(me.id),
+    recentFeedback(me.username),
   ]);
 
   const h = await headers();
@@ -119,10 +119,10 @@ export default async function Admin() {
         <h2 className="text-xl font-bold">Players ({players?.length ?? 0})</h2>
         <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-card text-sm">
           {players?.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 px-4 py-3">
+            <li key={p.username} className="flex items-center gap-3 px-4 py-3">
               <Avatar src={p.avatar_url} name={p.display_name} />
               <span className="flex-1 truncate">
-                {p.display_name} <span className="text-muted">{p.email}</span>
+                {p.display_name} <span className="text-muted">@{p.username}</span>
               </span>
               {p.is_admin && <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">admin</span>}
               <span className="text-muted">joined {p.joined_at.slice(0, 10)}</span>

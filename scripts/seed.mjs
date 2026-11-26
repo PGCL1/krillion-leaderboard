@@ -3,7 +3,7 @@
 //   npm run seed         add fake data (safe to re-run: existing seed scores are kept)
 //   npm run seed:clear   remove all fake data
 //
-// Every fake player id starts with "seed_", so clearing never touches real players.
+// Every fake player's username (and fake Clerk id) starts with "seed_", so clearing never touches real players.
 // Reads SUPABASE_* and KRILLION_* from .env.local.
 
 import { createClient } from "@supabase/supabase-js";
@@ -54,7 +54,7 @@ const EMOJI = ["🦑", "🐟", "⬛", "🦐", "🐙"];
 const grid = () => Array.from({ length: 7 }, () => EMOJI[Math.floor(rand() * EMOJI.length)]).join("");
 
 async function clear() {
-  const { error, count } = await db.from("players").delete({ count: "exact" }).like("id", `${PREFIX}%`);
+  const { error, count } = await db.from("players").delete({ count: "exact" }).like("username", `${PREFIX}%`);
   if (error) throw error;
   console.log(`removed ${count ?? 0} fake players (their scores went with them)`);
 }
@@ -63,14 +63,15 @@ async function add() {
   const todayIdx = dayIndex(todayIso);
 
   const players = PLAYERS.map((p) => ({
-    id: PREFIX + p.name,
+    username: PREFIX + p.name,
+    clerk_id: PREFIX + p.name,
     email: "",
     display_name: p.name,
     avatar_url: null,
     is_admin: false,
     joined_at: new Date((todayIdx - p.joined) * 86_400_000 + 9 * 3_600_000).toISOString(),
   }));
-  const { error: pErr } = await db.from("players").upsert(players, { onConflict: "id" });
+  const { error: pErr } = await db.from("players").upsert(players, { onConflict: "username" });
   if (pErr) throw pErr;
 
   const scores = [];

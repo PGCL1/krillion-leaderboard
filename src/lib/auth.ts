@@ -7,14 +7,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const INVITE_COOKIE = "krillion_invite";
 
 export type Player = {
-  id: string;
+  /** Primary key everywhere: the Clerk username, lowercase. */
+  username: string;
+  clerk_id: string;
   email: string;
   display_name: string;
   avatar_url: string | null;
   is_admin: boolean;
 };
 
-const PLAYER_COLS = "id, email, display_name, avatar_url, is_admin";
+const PLAYER_COLS = "username, clerk_id, email, display_name, avatar_url, is_admin";
 
 function envList(name: string): string[] {
   return (process.env[name] ?? "")
@@ -30,8 +32,9 @@ function avatarOf(user: ClerkUser): string | null {
   return user.hasImage ? user.imageUrl : null;
 }
 
-async function getPlayer(userId: string): Promise<Player | null> {
-  const { data } = await createAdminClient().from("players").select(PLAYER_COLS).eq("id", userId).maybeSingle();
+/** Finds the player behind a Clerk session. */
+async function getPlayer(clerkId: string): Promise<Player | null> {
+  const { data } = await createAdminClient().from("players").select(PLAYER_COLS).eq("clerk_id", clerkId).maybeSingle();
   return (data as Player) ?? null;
 }
 
@@ -46,24 +49,29 @@ export async function onboard(inviteCode: string | undefined): Promise<Player | 
   if (existing) return existing;
 
   const email = user.primaryEmailAddress?.emailAddress ?? "";
-  const username = user.username ?? "";
+  const username = (user.username ?? "").toLowerCase();
+  if (!username) return null; // sign-up requires a username; without one there is no key to store the player under
   const name = user.fullName || user.firstName || user.username || email.split("@")[0] || "Player";
   const avatar = avatarOf(user);
   const admin = createAdminClient();
 
   const isAdmin =
-    (username && envList("ADMIN_USERNAMES").includes(username.toLowerCase())) ||
+    envList("ADMIN_USERNAMES").includes(username) ||
     (email && envList("ADMIN_EMAILS").includes(email.toLowerCase()));
 
   if (isAdmin) {
     const { error } = await admin
       .from("players")
-      .upsert({ id: user.id, email, display_name: name, avatar_url: avatar, is_admin: true }, { onConflict: "id" });
+      .upsert(
+        { username, clerk_id: user.id, email, display_name: name, avatar_url: avatar, is_admin: true },
+        { onConflict: "clerk_id" },
+      );
     if (error) throw error;
   } else if (inviteCode) {
     const { data, error } = await admin.rpc("redeem_invite", {
       p_code: inviteCode,
-      p_user: user.id,
+      p_username: username,
+      p_clerk_id: user.id,
       p_email: email,
       p_name: name,
       p_avatar: avatar,
@@ -93,7 +101,7 @@ export async function requirePlayer(): Promise<Player> {
     console.warn(`not-invited: user=${userId} invite_cookie=${invite ? "present" : "missing"}`);
     redirect("/not-invited");
   }
-  return syncAvatar(existing);
+  return syncProfile(existing);
 }
 
 /** True if this signed-in user is already an approved player. */
@@ -101,16 +109,24 @@ export async function isPlayer(userId: string): Promise<boolean> {
   return (await getPlayer(userId)) !== null;
 }
 
-/** Keeps the stored picture in step with Clerk, so a photo added or changed later shows on the boards. */
-async function syncAvatar(player: Player): Promise<Player> {
+/**
+ * Keeps the stored picture and username in step with Clerk. A photo added later shows on the boards;
+ * a renamed username moves the player's key, and their scores follow (foreign keys cascade on update).
+ */
+async function syncProfile(player: Player): Promise<Player> {
   const user = await currentUser();
   if (!user) return player;
+  const changes: Partial<Pick<Player, "avatar_url" | "username">> = {};
   const avatar = avatarOf(user);
-  if (avatar === player.avatar_url) return player;
-  const { error } = await createAdminClient().from("players").update({ avatar_url: avatar }).eq("id", player.id);
+  if (avatar !== player.avatar_url) changes.avatar_url = avatar;
+  const username = user.username?.toLowerCase();
+  if (username && username !== player.username) changes.username = username;
+  if (Object.keys(changes).length === 0) return player;
+
+  const { error } = await createAdminClient().from("players").update(changes).eq("clerk_id", player.clerk_id);
   if (error) {
-    console.error("avatar sync failed", error.message);
+    console.error("profile sync failed", error.message);
     return player;
   }
-  return { ...player, avatar_url: avatar };
+  return { ...player, ...changes };
 }

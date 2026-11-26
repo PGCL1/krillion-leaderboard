@@ -6,6 +6,9 @@ export function Header({ player }: { player: Player }) {
   return (
     <header className="pt-4 pb-8">
       <div className="flex items-center justify-end gap-4 text-base">
+        <Link href={`/players/${encodeURIComponent(player.username)}`} className="kr-btn kr-btn--secondary">
+          my log
+        </Link>
         {player.is_admin && (
           <Link href="/admin" className="kr-btn kr-btn--secondary">
             admin

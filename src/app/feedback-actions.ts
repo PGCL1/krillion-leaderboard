@@ -19,7 +19,7 @@ export async function sendFeedback(kind: string, message: string, page: string):
 
   const { data, error } = await createAdminClient()
     .from("feedback")
-    .insert({ player_id: player.id, kind: k, message: text, page: String(page ?? "").slice(0, 200) || null })
+    .insert({ player_id: player.username, kind: k, message: text, page: String(page ?? "").slice(0, 200) || null })
     .select("id, kind, message, created_at")
     .single();
   if (error) {

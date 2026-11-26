@@ -15,10 +15,12 @@ Next.js (App Router) + Clerk (username + password) + Supabase (Postgres) on Verc
 - **Daily board**: ranks scores for a game; browse past games with Prev/Next. Shows who still has to play today.
 - **Overall board**: average score per game *played* — missed days don't count, so late joiners aren't penalized.
   Players with fewer than `MIN_GAMES_FOR_RANKING` games are listed as provisional.
+- **Player log** (`/players/<username>`): average depth over time, each day's finish (1st/2nd/3rd in the board's rank
+  colours), podiums, streak and recent dives. Tap any name on a board, or "my log" in the header.
 
 ## Setup
 
-1. **Supabase** (database only): create a project. In the SQL editor, run `supabase/migrations/0001_init.sql`.
+1. **Supabase** (database only): create a project. In the SQL editor, run every file in `supabase/migrations/` in order.
    Copy the project URL and the `service_role` key.
 2. **Clerk** (auth): create an application, then in Configure → User & authentication:
    - **Email**: turn off sign-up and sign-in with email (and phone, if shown).
@@ -45,4 +47,3 @@ npm run lint
 ## Later
 
 - Weekly bonus system (resets weekly): `scores.played_on` is stored per row so weekly windows are a simple query.
-- Charts / per-player history.

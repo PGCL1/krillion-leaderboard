@@ -19,7 +19,7 @@ export async function createInvite(formData: FormData) {
     .from("invites")
     .insert({
       code: randomBytes(9).toString("base64url"),
-      created_by: me.id,
+      created_by: me.username,
       max_uses: maxUses,
       expires_at: days ? new Date(Date.now() + days * 86_400_000).toISOString() : null,
     });
