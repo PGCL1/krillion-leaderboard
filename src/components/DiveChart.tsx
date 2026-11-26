@@ -15,7 +15,7 @@ export type ChartDay = {
 
 const W = 720;
 const H = 290;
-const L = 46;
+const L = 56;
 const R = 10;
 const T = 14;
 const B = 72;
