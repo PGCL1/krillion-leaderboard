@@ -32,7 +32,6 @@ const shortDate = (iso: string) =>
 export function DiveChart({ days }: { days: ChartDay[] }) {
   const [hover, setHover] = useState<number | null>(null);
   const n = days.length;
-  const span = Math.max(1, n - 1);
   const avgs = days.map((d) => d.avg);
   const pad = 4;
   let lo = Math.floor((Math.min(...avgs) - pad) / 10) * 10;
@@ -46,9 +45,13 @@ export function DiveChart({ days }: { days: ChartDay[] }) {
   const ticks: number[] = [];
   for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) ticks.push(t);
 
-  const x = (i: number) => (n === 1 ? (L + W - R) / 2 : L + (i / span) * (W - L - R));
+  // Each game owns an equal slot; the line and its block sit at the slot's centre.
+  const band = (W - L - R) / n;
+  const x = (i: number) => L + (i + 0.5) * band;
   const y = (v: number) => T + ((v - lo) / (hi - lo)) * (H - T - B);
-  const cw = n === 1 ? 24 : (W - L - R) / n;
+  const cw = Math.min(band, 28);
+  // The last game is today (or later) until it's played: leave its slot empty rather than calling it missed.
+  const pending = (i: number) => i === n - 1 && days[i].score === null;
   const stripY = H - B + 16;
   const deepest = Math.max(1, ...days.map((d) => d.score ?? 0));
 
@@ -65,7 +68,7 @@ export function DiveChart({ days }: { days: ChartDay[] }) {
   function onMove(e: React.PointerEvent<SVGRectElement>) {
     const box = e.currentTarget.ownerSVGElement!.getBoundingClientRect();
     const px = ((e.clientX - box.left) / box.width) * W;
-    setHover(Math.max(0, Math.min(n - 1, Math.round(((px - L) / (W - L - R)) * span))));
+    setHover(Math.max(0, Math.min(n - 1, Math.floor((px - L) / band))));
   }
 
   return (
@@ -75,7 +78,7 @@ export function DiveChart({ days }: { days: ChartDay[] }) {
           <>
             #{h.game} · {shortDate(h.date)} ·{" "}
             {h.score === null ? (
-              "missed"
+              hover === n - 1 ? "not played yet" : "missed"
             ) : (
               <>
                 <b>{h.score}</b> deep ·{" "}
@@ -119,6 +122,7 @@ export function DiveChart({ days }: { days: ChartDay[] }) {
         {days.map((d, i) => {
           const cx = x(i) - cw / 2 + 0.5;
           const w = Math.max(1, cw - 1);
+          if (pending(i)) return null;
           return d.score === null ? (
             <rect key={d.game} className="kr-cell kr-cell--miss" x={cx} y={stripY + STRIP_H / 2 - 1} width={w} height={2} />
           ) : (
